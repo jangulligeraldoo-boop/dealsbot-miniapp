@@ -64,7 +64,7 @@ async function loadSnap(){
     m = /[#&]s=([^&]+)/.exec(h);
     if (m) return JSON.parse(new TextDecoder().decode(b64(m[1])));
   } catch (e) { console.warn(e); }
-  return {
+  const demo = {
     v:1, bot:"DealsBot", mode:"prova", paused:false, cid:"_default", chs:[], p:{}, next:"05/11 01:04",
     posted:[[ "B01M01K39E","Skechers Graceful",30.99, Math.floor(Date.now()/1000)-3600 ]],
     drafts:[], n_posted24:12,
@@ -77,6 +77,8 @@ async function loadSnap(){
     ],
     demo:true
   };
+  if (tg && tg.initData) { demo.explore = []; demo.posted = []; demo.n_posted24 = 0; }
+  return demo;
 }
 function unpackSlots(p){
   if (!p.slots) return;
@@ -236,7 +238,9 @@ const V = {
       <div class="sec">Orari di oggi</div>
       <div class="card"><div class="sched">${slots.slice(0,8).map(s=>`<span class="slot-pill">${s}</span>`).join("")}${slots.length>8?`<span class="slot-pill">+${slots.length-8}</span>`:""}</div>
         <div class="hint" style="margin:10px 0 0">Prossimo: <b>${esc(nextSlotLabel())}</b></div></div>
-      ${S.demo?`<div class="warn">Anteprima locale · dati di esempio (nessuno snapshot nel link).</div>`:""}
+      ${S.demo ? (inTG()
+        ? `<div class="card" style="text-align:center"><b>Dati non caricati</b><div class="hint" style="margin:6px 0 10px">Il bot non ha ancora inviato lo stato attuale.</div><button type="button" class="btn primary" data-sync>🔄 Carica dati</button></div>`
+        : `<div class="warn">Anteprima locale · dati di esempio (nessuno snapshot nel link).</div>`) : ""}
     </div>`;
   },
   auto(){
@@ -486,7 +490,7 @@ const V = {
             <div class="meta"><span class="badge type">${esc(e[5]||"normal")}</span>${e[6]!=null?`<span class="hint" style="margin:0">★ ${e[6]}</span>`:""}</div>
             <div class="actions">
               <button type="button" class="btn blue" data-now="${e[0]}">Pubblica ora</button>
-              <button type="button" class="btn ghost" data-sch="${e[0]}">Autopost</button>
+              <button type="button" class="btn ghost" data-auto="${e[0]}">Autopost</button>
               <button type="button" class="btn ghost" data-sch="${e[0]}">Programma</button>
             </div>
           </div></div>`;
@@ -529,7 +533,7 @@ function go(s, t){
 }
 
 document.addEventListener("click", e => {
-  const t = e.target.closest("[data-t],[data-tab],[data-nav],[data-day],[data-rm],[data-act],[data-smode],[data-sm],[data-mode],[data-fmt],[data-tagk],[data-reset],[data-card],[data-now],[data-sch],[data-etab],[data-cat],[data-step]");
+  const t = e.target.closest("[data-t],[data-tab],[data-nav],[data-day],[data-rm],[data-act],[data-smode],[data-sm],[data-mode],[data-fmt],[data-tagk],[data-reset],[data-card],[data-now],[data-sch],[data-auto],[data-cont],[data-sync],[data-etab],[data-cat],[data-step]");
   if (!t) return;
   const ds = t.dataset;
   if (ds.t) { tab = ds.t; screen = ds.t; return render(); }
@@ -561,6 +565,9 @@ document.addEventListener("click", e => {
   }
   if (ds.now) { action = {act:"post_now", asin:ds.now}; return send(); }
   if (ds.sch) { action = {act:"schedule", asin:ds.sch}; return send(); }
+  if (ds.auto) { action = {act:"autopost", asin:ds.auto}; return send(); }
+  if (ds.cont !== undefined) return sendNextPart();
+  if (ds.sync !== undefined) return openStart("sync");
   if (ds.act) {
     const cur = slotsOf(day) ?? [...(P.slots.def||[])];
     if (ds.act === "add") {
@@ -623,15 +630,99 @@ function payload(){
   if (tg && tg.initData) o.init = tg.initData;
   return o;
 }
+// ---- Invio: sendData (pulsante tastiera /pannello) oppure link /start (pulsante menu, inline, ecc.) ----
+const BOT_FALLBACK = "GeraldoDealsBot";
+const CHUNK = 52;
+const inTG = () => !!(tg && tg.initData);
+const canSendData = () => inTG() && tg.initDataUnsafe && !tg.initDataUnsafe.query_id && typeof tg.sendData === "function";
+function b64u(bytes){ let s = ""; bytes.forEach(b => s += String.fromCharCode(b)); return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); }
+async function deflate(bytes){
+  if (typeof CompressionStream === "undefined") return null;
+  const cs = new CompressionStream("deflate-raw");
+  return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(cs)).arrayBuffer());
+}
+async function blob(obj){
+  const raw = new TextEncoder().encode(JSON.stringify(obj));
+  const a = "0" + b64u(raw); const z = await deflate(raw);
+  const b = z ? "1" + b64u(z) : null;
+  return b && b.length < a.length ? b : a;
+}
+function botName(){ return (S && S.u) || BOT_FALLBACK; }
+function openStart(code){
+  const url = `https://t.me/${botName()}?start=${code}`;
+  if (tg && tg.openTelegramLink) tg.openTelegramLink(url); else window.open(url, "_blank");
+}
+function store(k, v){ try { localStorage.setItem(k, v); } catch(_){} try { tg && tg.CloudStorage && tg.CloudStorage.setItem(k, v); } catch(_){} }
+function unstore(k){ try { localStorage.removeItem(k); } catch(_){} try { tg && tg.CloudStorage && tg.CloudStorage.removeItem(k); } catch(_){} }
+function loadPending(){
+  return new Promise(res => {
+    let v = null; try { v = localStorage.getItem("db_pend"); } catch(_){}
+    if (v) return res(v);
+    if (tg && tg.CloudStorage) { try { tg.CloudStorage.getItem("db_pend", (e, val) => res(e ? null : val)); } catch(_) { res(null); } }
+    else res(null);
+  });
+}
+let pending = null; // {codes:[...], i:n}
+function showPending(){
+  const old = document.getElementById("pendbar"); if (old) old.remove();
+  if (!pending || pending.i >= pending.codes.length) return;
+  document.body.insertAdjacentHTML("beforeend", `<div id="pendbar" class="savebar" style="bottom:calc(var(--dock-h) + var(--safe-b) + 60px)">
+    <span>Invio impostazioni: parte ${pending.i + 1}/${pending.codes.length}</span>
+    <button type="button" class="btn primary sm" data-cont>Invia ▶️</button></div>`);
+}
+function sendNextPart(){
+  if (!pending) return;
+  const code = pending.codes[pending.i++];
+  if (pending.i >= pending.codes.length) { unstore("db_pend"); }
+  else store("db_pend", JSON.stringify(pending));
+  openStart(code);
+  if (pending.i >= pending.codes.length) {
+    pending = null; P0 = clone(P); S.mode = mode; S.paused = paused;
+    toast("✅ Inviato al bot: controlla la chat per la conferma.");
+  }
+  showPending(); dirty();
+}
+function toast(t){
+  if (tg && tg.showAlert) { try { return tg.showAlert(t); } catch(_){} }
+  const el = document.createElement("div"); el.className = "savebar"; el.style.bottom = "140px"; el.textContent = t;
+  document.body.appendChild(el); setTimeout(() => el.remove(), 2500);
+}
+async function sendViaLink(){
+  if (!S.k) { toast("Dati non aggiornati: tocca «Carica dati» o scrivi /start al bot."); return openStart("sync"); }
+  const pre = "x" + S.k;
+  if (action) {
+    const a = action; action = null; dirty();
+    if (a.act === "post_now") return openStart(pre + "p" + a.asin);
+    if (a.act === "autopost") return openStart(pre + "a" + a.asin);
+    if (a.act === "schedule") return openStart(pre + "g" + a.asin);
+    if (a.act === "post_url") {
+      const m = /(?:\/dp\/|\/gp\/product\/|\/gp\/aw\/d\/)([A-Z0-9]{10})/.exec(a.url) || /^([A-Z0-9]{10})$/.exec(a.url.trim());
+      if (m) return openStart(pre + "p" + m[1]);
+      const sh = /amzn\.(?:to|eu)\/([A-Za-z0-9]{3,40})/.exec(a.url);
+      if (sh) return openStart(pre + "u" + sh[1]);
+      return toast("Link non riconosciuto: usa un link amazon.it/dp/… o amzn.to/…");
+    }
+    return;
+  }
+  const o = payload(); delete o.init;
+  const data = await blob(o);
+  const parts = []; for (let i = 0; i < data.length; i += CHUNK) parts.push(data.slice(i, i + CHUNK));
+  if (parts.length > 30) return toast("Troppe modifiche insieme (testi lunghi): salva in più volte o usa /pannello.");
+  const seq = Math.random().toString(36).slice(2, 4).padEnd(2, "0");
+  const n = parts.length.toString(36);
+  pending = { codes: parts.map((p, i) => pre + "c" + seq + i.toString(36) + n + p), i: 0 };
+  sendNextPart();
+}
 function send(){
   let s = JSON.stringify(payload());
-  const canSend = tg && tg.initData && tg.initDataUnsafe && !tg.initDataUnsafe.query_id;
-  if (new TextEncoder().encode(s).length > 4096) {
-    const o = payload(); delete o.init; s = JSON.stringify(o);
-    if (new TextEncoder().encode(s).length > 4096) return (tg ? tg.showAlert("Troppe modifiche insieme: salva in più volte.") : alert("Troppo grande"));
+  if (canSendData()) {
+    if (new TextEncoder().encode(s).length > 4096) {
+      const o = payload(); delete o.init; s = JSON.stringify(o);
+      if (new TextEncoder().encode(s).length > 4096) return sendViaLink();
+    }
+    return tg.sendData(s);
   }
-  if (canSend) return tg.sendData(s);
-  if (tg && tg.initData) return tg.showAlert("Per salvare apri la Mini-app con /pannello (pulsante della tastiera).");
+  if (inTG()) return sendViaLink();
   console.log("sendData", s);
   const old = document.getElementById("dbg"); if (old) old.remove();
   document.body.insertAdjacentHTML("beforeend", `<pre id="dbg" class="card" style="white-space:pre-wrap;font-size:11px;max-width:480px;margin:12px auto">sendData → ${esc(s)}</pre>`);
@@ -649,4 +740,5 @@ loadSnap().then(s => {
   if (mt && mt[1] === "slots") { tab = "home"; screen = "slots"; }
   if (mt && mt[1] === "explore") { tab = "explore"; screen = "explore"; }
   render();
+  loadPending().then(v => { try { const p = v && JSON.parse(v); if (p && p.codes && p.i < p.codes.length && p.codes[0].slice(1,7) === S.k) { pending = p; showPending(); } } catch(_){} });
 });
