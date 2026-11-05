@@ -238,6 +238,7 @@ const V = {
       <div class="sec">Orari di oggi</div>
       <div class="card"><div class="sched">${slots.slice(0,8).map(s=>`<span class="slot-pill">${s}</span>`).join("")}${slots.length>8?`<span class="slot-pill">+${slots.length-8}</span>`:""}</div>
         <div class="hint" style="margin:10px 0 0">Prossimo: <b>${esc(nextSlotLabel())}</b></div></div>
+      ${inTG() && !canSendData() ? `<div class="card" style="border:1px solid rgba(245,158,11,.35)"><b>ℹ️ Aperta dal menu</b><div class="hint" style="margin:6px 0 0">Le azioni vengono inviate con un link al bot. Per un invio garantito usa il pulsante <b>📱 Mini-app</b> della tastiera sotto la chat (scrivi /start se non lo vedi).</div></div>` : ""}
       ${S.demo ? (inTG()
         ? `<div class="card" style="text-align:center"><b>Dati non caricati</b><div class="hint" style="margin:6px 0 10px">Il bot non ha ancora inviato lo stato attuale.</div><button type="button" class="btn primary" data-sync>🔄 Carica dati</button></div>`
         : `<div class="warn">Anteprima locale · dati di esempio (nessuno snapshot nel link).</div>`) : ""}
@@ -648,9 +649,14 @@ async function blob(obj){
   return b && b.length < a.length ? b : a;
 }
 function botName(){ return (S && S.u) || BOT_FALLBACK; }
+let linkNoticeShown = false;
 function openStart(code){
   const url = `https://t.me/${botName()}?start=${code}`;
   if (tg && tg.openTelegramLink) tg.openTelegramLink(url); else window.open(url, "_blank");
+  if (code !== "sync" && !linkNoticeShown) {
+    linkNoticeShown = true;
+    setTimeout(() => toast("📨 Inviato al bot via link. Se in chat non arriva la conferma, chiudi e apri la Mini-app dal pulsante «📱 Mini-app» sotto la chat (tastiera): da lì funziona sempre."), 400);
+  }
 }
 function store(k, v){ try { localStorage.setItem(k, v); } catch(_){} try { tg && tg.CloudStorage && tg.CloudStorage.setItem(k, v); } catch(_){} }
 function unstore(k){ try { localStorage.removeItem(k); } catch(_){} try { tg && tg.CloudStorage && tg.CloudStorage.removeItem(k); } catch(_){} }
