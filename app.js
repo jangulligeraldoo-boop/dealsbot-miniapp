@@ -363,13 +363,15 @@ const V = {
     ];
     return `<div class="sheet"><h2 style="margin:0 0 12px;font-size:22px">Filtri</h2>
       <div class="list">${fields.map(([k,l])=>`<div class="field"><label>${l}</label><input type="number" step="any" data-num="${k}" value="${P[k]??""}" placeholder="—"></div>`).join("")}
+        <div class="row"><span class="body"><b>Solo marche note</b><span class="sub">Orologi, smartwatch e gioielli</span></span>${sw("brand_guard", P.brand_guard!==false)}</div>
+        <div class="field"><label>Marche extra ammesse (virgola)</label><input type="text" data-list="brand_allow" value="${esc((P.brand_allow||[]).join(", "))}"></div>
         <div class="field"><label>Blacklist parole</label><input type="text" data-list="blacklist" value="${esc((P.blacklist||[]).join(", "))}"></div>
         <div class="field"><label>Parole chiave extra</label><input type="text" data-list="keywords" value="${esc((P.keywords||[]).join(", "))}"></div>
       </div></div>`;
   },
   cats(){
     return `<div class="sheet"><h2 style="margin:0 0 4px;font-size:22px">Categorie</h2>
-      <div class="hint">${P.categories.length} attive</div>
+      <div class="hint">${P.categories.length} attive · Orologi/Gioielli pesano ~1% (mix canale)</div>
       <div class="list" style="margin-bottom:12px"><div class="row"><span class="body"><b>Rotazione categorie</b></span>${sw("category_rotation",!!P.category_rotation)}</div></div>
       <div class="chips" style="flex-wrap:wrap;overflow:visible">${D.CATEGORIES.map(c=>`<button type="button" class="chip ${P.categories.includes(c)?"on":""}" data-cat="${esc(c)}">${esc(c)}</button>`).join("")}</div>
     </div>`;
