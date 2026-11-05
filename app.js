@@ -364,7 +364,11 @@ const V = {
     return `<div class="sheet"><h2 style="margin:0 0 12px;font-size:22px">Filtri</h2>
       <div class="list">${fields.map(([k,l])=>`<div class="field"><label>${l}</label><input type="number" step="any" data-num="${k}" value="${P[k]??""}" placeholder="—"></div>`).join("")}
         <div class="row"><span class="body"><b>Solo marche note</b><span class="sub">Orologi, smartwatch e gioielli</span></span>${sw("brand_guard", P.brand_guard!==false)}</div>
+        <div class="row"><span class="body"><b>Niente marche random</b><span class="sub">Cuffie/gadget no-name (Renimer…)</span></span>${sw("noname_guard", P.noname_guard!==false)}</div>
+        <div class="row"><span class="body"><b>Blocca venditori CN</b><span class="sub">Rivenditori cinesi / nomi sospetti</span></span>${sw("chinese_seller_block", P.chinese_seller_block!==false)}</div>
+        <div class="row"><span class="body"><b>Anti sconto gonfiato</b><span class="sub">Listino alzato / sopra minimo 30g</span></span>${sw("fake_discount_guard", P.fake_discount_guard!==false)}</div>
         <div class="field"><label>Marche extra ammesse (virgola)</label><input type="text" data-list="brand_allow" value="${esc((P.brand_allow||[]).join(", "))}"></div>
+        <div class="field"><label>Marche bloccate (virgola)</label><input type="text" data-list="brand_blocklist" value="${esc((P.brand_blocklist||[]).join(", "))}"></div>
         <div class="field"><label>Blacklist parole</label><input type="text" data-list="blacklist" value="${esc((P.blacklist||[]).join(", "))}"></div>
         <div class="field"><label>Parole chiave extra</label><input type="text" data-list="keywords" value="${esc((P.keywords||[]).join(", "))}"></div>
       </div></div>`;
