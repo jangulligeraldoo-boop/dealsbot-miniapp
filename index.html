@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<title>DealsBot</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="defaults.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <header id="topbar" class="topbar"></header>
+    <main id="view"></main>
+  </div>
+  <nav id="tabs" class="dock" aria-label="Navigazione">
+    <button data-t="home" class="on"><i data-i="home"></i><span>Home</span></button>
+    <button data-t="publish"><i data-i="publish"></i><span>Pubblica</span></button>
+    <button data-t="explore"><i data-i="explore"></i><span>Esplora</span></button>
+    <button data-t="posts"><i data-i="posts"></i><span>Post</span></button>
+    <button data-t="settings"><i data-i="settings"></i><span>Impostazioni</span></button>
+  </nav>
+  <div id="savebar" class="savebar" hidden>
+    <span id="dirty"></span>
+    <button id="save" class="btn primary sm">Salva</button>
+  </div>
+<script src="app.js"></script>
+</body>
+</html>
