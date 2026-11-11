@@ -564,10 +564,11 @@ const V = {
           <div class="title">${i+1}. ${esc(e[1])}</div>
           <div class="prices"><span class="now">${eur(e[2])}</span><span class="old">${eur(e[3])}</span><span class="badge disc">-${e[4]}%</span></div>
           <div class="meta"><span class="badge type">${esc(e[5]||"")}</span>${typ}${slot}${combo}</div>
-          <div class="actions">
-            <button type="button" class="btn danger" data-qskip="${e[0]}">Elimina</button>
+          <div class="actions qacts">
+            <button type="button" class="btn blue" data-now="${e[0]}">Pubblica ora</button>
             <button type="button" class="btn ghost" data-qpick="${e[0]}" data-qtitle="${esc(e[1])}" data-qidx="${i}">Sostituisci</button>
-            ${i>0?`<button type="button" class="btn ghost" data-qnext="${e[0]}">Posta dopo</button>`:""}
+            ${i>0?`<button type="button" class="btn ghost" data-qnext="${e[0]}">Posta dopo</button>`:`<span></span>`}
+            <button type="button" class="btn danger" data-qskip="${e[0]}">Elimina</button>
           </div>
         </div></div>`;
       }).join("") : `<div class="empty">Nessuna offerta pronta in coda per i prossimi slot.</div>`}</div>
@@ -634,10 +635,11 @@ const V = {
         <div class="title">${esc(e[1])}</div>
         <div class="prices"><span class="now">${eur(e[2])}</span><span class="old">${eur(e[3])}</span><span class="badge disc">-${e[4]}%</span></div>
         <div class="meta"><span class="badge type">${esc(e[5]||"")}</span>${typ}${slot}${combo}</div>
-        <div class="actions">
-          <button type="button" class="btn danger" data-qskip="${e[0]}">Elimina</button>
+        <div class="actions qacts">
+          <button type="button" class="btn blue" data-now="${e[0]}">Pubblica ora</button>
           <button type="button" class="btn ghost" data-qpick="${e[0]}" data-qtitle="${esc(e[1])}" data-qidx="${i}">Sostituisci</button>
-          ${i>0?`<button type="button" class="btn ghost" data-qnext="${e[0]}">Posta dopo</button>`:""}
+          ${i>0?`<button type="button" class="btn ghost" data-qnext="${e[0]}">Posta dopo</button>`:`<span></span>`}
+          <button type="button" class="btn danger" data-qskip="${e[0]}">Elimina</button>
         </div>
       </div></div></div>
     </div>`;
@@ -717,9 +719,22 @@ document.addEventListener("click", e => {
     P[k] = Math.max(1, Math.min(5, (P[k]||1) + Number(d)));
     return render();
   }
-  if (ds.now) { action = {act:"post_now", asin:ds.now}; return send(); }
-  if (ds.sch) { action = {act:"schedule", asin:ds.sch}; return send(); }
-  if (ds.auto) { action = {act:"autopost", asin:ds.auto}; return send(); }
+  if (ds.now) {
+    const asin = ds.now;
+    if (screen === "sched" || screen === "programmati" || screen === "upcoming") {
+      S.upcoming = (S.upcoming || []).filter(e => e[0] !== asin);
+      if (screen === "sched" || screen === "programmati") {
+        schedIdx = null;
+        screen = "programmati";
+        tab = "posts";
+      }
+      render();
+    }
+    action = {act:"post_now", asin};
+    return sendAction();
+  }
+  if (ds.sch) { action = {act:"schedule", asin:ds.sch}; return sendAction(); }
+  if (ds.auto) { action = {act:"autopost", asin:ds.auto}; return sendAction(); }
   if (ds.qskip) {
     const asin = ds.qskip;
     if (screen === "sched" || screen === "programmati") {
@@ -730,7 +745,7 @@ document.addEventListener("click", e => {
       render();
     }
     action = {act:"queue_skip", asin};
-    return send();
+    return sendAction();
   }
   if (ds.qnext) {
     const asin = ds.qnext;
@@ -742,9 +757,9 @@ document.addEventListener("click", e => {
       render();
     }
     action = {act:"queue_next", asin};
-    return send();
+    return sendAction();
   }
-  if (ds.qadd) { action = {act:"queue_add", asin:ds.qadd}; return send(); }
+  if (ds.qadd) { action = {act:"queue_add", asin:ds.qadd}; return sendAction(); }
   if (ds.qpick) { pickFor = {asin:ds.qpick, title: ds.qtitle || "", index: Number(ds.qidx || 0), back: screen}; return render(); }
   if (ds.pickcancel) {
     const back = pickFor && pickFor.back;
@@ -755,12 +770,12 @@ document.addEventListener("click", e => {
   if (ds.replacenext) {
     const drop = pickFor && pickFor.asin; pickFor = null;
     action = {act:"queue_next", asin:ds.replacenext, alsoSkip: drop};
-    return send();
+    return sendAction();
   }
   if (ds.replaceadd) {
     const drop = pickFor && pickFor.asin; pickFor = null;
     action = {act:"queue_add", asin:ds.replaceadd, alsoSkip: drop};
-    return send();
+    return sendAction();
   }
   if (ds.replaceat) { return swapQueued(ds.replaceat); }
   if (ds.cont !== undefined) return sendNextPart();
@@ -788,7 +803,7 @@ document.addEventListener("click", e => {
     if (ds.act === "posturl") {
       const u = $("#url").value.trim();
       if (!/amazon\.|amzn\.|a\.co\//.test(u)) return alert("Link Amazon non valido");
-      action = {act:"post_url", url:u}; return send();
+      action = {act:"post_url", url:u}; return sendAction();
     }
     return render();
   }
@@ -889,6 +904,40 @@ function toast(t){
   const el = document.createElement("div"); el.className = "savebar"; el.style.bottom = "140px"; el.textContent = t;
   document.body.appendChild(el); setTimeout(() => el.remove(), 2500);
 }
+async function sendAction(){
+  const a = action;
+  if (!a) return;
+  const api = ((S && S.api) || "").replace(/\/$/, "");
+  const init = (tg && tg.initData) || "";
+  if (!api || !init) {
+    action = null; dirty();
+    toast("Riapri la Mini-app dal pulsante «📱 Mini-app» sotto la chat: i pulsanti ora funzionano qui dentro.");
+    return;
+  }
+  const body = Object.assign({cid: S.cid, init: init}, a);
+  try {
+    const r = await fetch(api + "/wa", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(body)
+    });
+    let j = {};
+    try { j = await r.json(); } catch(_){}
+    action = null; dirty();
+    if (!r.ok || j.ok === false) {
+      toast((j && j.msg) || "Operazione non riuscita. Riapri la Mini-app dal pulsante tastiera e riprova.");
+      return;
+    }
+    if (Array.isArray(j.upcoming)) S.upcoming = j.upcoming;
+    if (Array.isArray(j.pool)) S.pool = j.pool;
+    if (Array.isArray(j.posted)) S.posted = j.posted;
+    render();
+    if (j.msg) toast(j.msg);
+  } catch (e) {
+    action = null; dirty();
+    toast("Connessione non riuscita. Riapri la Mini-app dal pulsante tastiera e riprova.");
+  }
+}
 async function sendViaLink(){
   if (!S.k) { toast("Dati non aggiornati: tocca «Carica dati» o scrivi /start al bot."); return openStart("sync"); }
   const pre = "x" + S.k;
@@ -952,7 +1001,7 @@ function swapQueued(newAsin){
   render();
   toast("✅ Sostituita in questa posizione.");
   action = {act:"queue_replace", asin:newAsin, replace:oldAsin, at:idx, planned:(S.upcoming||[]).map(e => e[0])};
-  return send();
+  return sendAction();
 }
 function send(){
   let s = JSON.stringify(payload());

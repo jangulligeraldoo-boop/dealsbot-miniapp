@@ -188,6 +188,8 @@ button{cursor:pointer}
 .act-row .btn.muted{background:var(--bg2);color:var(--tx)}
 .prod .thumb{background:#fff;padding:4px}
 .prod .actions{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:6px}
+.prod .actions.qacts{grid-template-columns:1fr 1fr;}
+.prod .actions.qacts .btn{font-size:12px;padding:10px 6px;}
 .slot-row .t{font-size:16px}
 .chip small{font-variant-numeric:tabular-nums}
 
