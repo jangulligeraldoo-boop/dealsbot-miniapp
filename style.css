@@ -189,3 +189,11 @@ button{cursor:pointer}
 .prod .actions{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:6px}
 .slot-row .t{font-size:16px}
 .chip small{font-variant-numeric:tabular-nums}
+
+/* 6 tab: etichette un po' più compatte */
+.dock button span{font-size:10px;line-height:1.1}
+.dock button{padding:6px 0 3px}
+.badge.combo{background:#7c3aed;color:#fff}
+.badge.slot{background:rgba(59,130,246,.15);color:var(--link);font-weight:600}
+.prod .actions .btn.danger{background:#b91c1c;color:#fff;border:0}
+.pickbar{position:sticky;top:0;z-index:2;background:var(--bg2);padding:10px 12px;border-bottom:1px solid var(--sep);font-size:13px}

@@ -75,6 +75,15 @@ async function loadSnap(){
       ["B0TEST0004","New Era Cappellino 9FORTY",16.99,25.99,35,"normal",4.6,"https://m.media-amazon.com/images/I/61bX2hQ3pFL._AC_UL160_.jpg"],
       ["B0TEST0005","Collana in Argento 925",12.68,16.90,25,"warehouse",4.2,"https://m.media-amazon.com/images/I/61pA6My6BCL._AC_UL160_.jpg"],
     ],
+    upcoming:[
+      ["B0CAFE0001","Philips 2300 Macchina Caffè Automatica",249.00,399.00,38,"Casa e cucina","11/11 17:50",0,"https://m.media-amazon.com/images/I/71nF8uE8nOL._AC_UL160_.jpg"],
+      ["B0PHON0001","Samsung Galaxy S24 256GB",499.00,799.00,38,"Elettronica","11/11 18:10",0,"https://m.media-amazon.com/images/I/71Q1zqS3QJL._AC_UL160_.jpg"],
+      ["B0LEGO0001","LEGO Botanicals Albero Bonsai",42.99,54.99,22,"Giochi e giocattoli","11/11 18:30",1,"https://m.media-amazon.com/images/I/61SUj2aKoEL._AC_UL160_.jpg"],
+    ],
+    pool:[
+      ["B0TEFA0001","Tefal padella antiaderente 28 cm",24.90,39.90,38,"Casa e cucina","",0,"https://m.media-amazon.com/images/I/61bX2hQ3pFL._AC_UL160_.jpg"],
+      ["B0NIVE0001","Nivea Crema Idratante 400 ml",6.99,11.90,41,"Bellezza","",0,"https://m.media-amazon.com/images/I/61pA6My6BCL._AC_UL160_.jpg"],
+    ],
     demo:true
   };
   if (tg && tg.initData) { demo.explore = []; demo.posted = []; demo.n_posted24 = 0; }
@@ -95,7 +104,7 @@ function changes(){
 }
 
 let S, P0, P, mode, paused, tab = "home", screen = "home", day = "def", fmtKey = "lightning", tagKey = "reviews";
-let exploreTab = "possible", action = null, editKey = null;
+let exploreTab = "possible", action = null, editKey = null, pickFor = null;
 
 function dirty(){
   const n = Object.keys(changes()).length + (mode !== S.mode) + (paused !== !!S.paused) + (action ? 1 : 0);
@@ -223,6 +232,7 @@ const V = {
             <h3>Mini-app gratuita</h3>
             <p>Pannello completo, senza costi né abbonamento.</p>
           </div>
+          <button type="button" class="btn" data-tab="upcoming">Prossimi post</button>
           <button type="button" class="btn" data-tab="explore">Esplora</button>
         </div>
       </div>
@@ -505,6 +515,57 @@ const V = {
       </div>
     </div>`;
   },
+  upcoming(){
+    const items = S.upcoming || [];
+    const pool = S.pool || [];
+    const thumbOf = (e, imgIdx) => {
+      const src = e[imgIdx];
+      return src
+        ? `<img class="thumb" src="${esc(src)}" alt="" loading="eager" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><div class="thumb" style="display:none;place-items:center;background:var(--bg2);color:var(--hint);font-size:20px">📦</div>`
+        : `<div class="thumb" style="display:grid;place-items:center;background:var(--bg2);color:var(--hint);font-size:22px">📦</div>`;
+    };
+    if (pickFor) {
+      return `<div class="sheet">
+        <div class="pickbar">Sostituisci «${esc(pickFor.title)}» con un'altra offerta già ammissibile. L'invio sul canale resta automatico.</div>
+        <div class="btns" style="margin:0 0 10px"><button type="button" class="btn ghost" data-pickcancel="1">Annulla</button></div>
+        <div class="card pad0">${pool.length ? pool.map(e => {
+          return `<div class="prod">${thumbOf(e, 8)}<div class="info">
+            <div class="title">${esc(e[1])}</div>
+            <div class="prices"><span class="now">${eur(e[2])}</span><span class="old">${eur(e[3])}</span><span class="badge disc">-${e[4]}%</span></div>
+            <div class="meta"><span class="badge type">${esc(e[5]||"")}</span></div>
+            <div class="actions">
+              <button type="button" class="btn blue" data-replacenext="${e[0]}">Usa come prossimo</button>
+              <button type="button" class="btn ghost" data-replaceadd="${e[0]}">Aggiungi in coda</button>
+            </div>
+          </div></div>`;
+        }).join("") : `<div class="empty">Nessun altro candidato ammissibile in questo momento.</div>`}</div>
+      </div>`;
+    }
+    return `<div class="sheet">
+      <h2 style="margin:0 0 6px;font-size:22px">Prossimi post</h2>
+      <div class="hint" style="margin:0 0 12px">In ordine, quello che il bot pubblicherà in automatico sul canale. Puoi toglierne uno o sceglierne un altro: i filtri e i tetti restano validi.</div>
+      <div class="card pad0">${items.length ? items.map((e, i) => {
+        const combo = e[7] ? `<span class="badge combo">Combo</span>` : "";
+        const slot = e[6] ? `<span class="badge slot">${esc(e[6])}</span>` : "";
+        return `<div class="prod">${thumbOf(e, 8)}<div class="info">
+          <div class="title">${i+1}. ${esc(e[1])}</div>
+          <div class="prices"><span class="now">${eur(e[2])}</span><span class="old">${eur(e[3])}</span><span class="badge disc">-${e[4]}%</span></div>
+          <div class="meta"><span class="badge type">${esc(e[5]||"")}</span>${slot}${combo}</div>
+          <div class="actions">
+            <button type="button" class="btn danger" data-qskip="${e[0]}">Elimina</button>
+            <button type="button" class="btn ghost" data-qpick="${e[0]}" data-qtitle="${esc(e[1])}">Sostituisci</button>
+            ${i>0?`<button type="button" class="btn ghost" data-qnext="${e[0]}">Posta dopo</button>`:""}
+          </div>
+        </div></div>`;
+      }).join("") : `<div class="empty">Nessuna offerta pronta in coda per i prossimi slot.</div>`}</div>
+      ${pool.length && !items.length ? `<div class="sec">Candidati ammissibili</div><div class="card pad0">${pool.map(e => `<div class="prod">${thumbOf(e, 8)}<div class="info">
+        <div class="title">${esc(e[1])}</div>
+        <div class="prices"><span class="now">${eur(e[2])}</span><span class="old">${eur(e[3])}</span><span class="badge disc">-${e[4]}%</span></div>
+        <div class="actions"><button type="button" class="btn blue" data-qnext="${e[0]}">Posta dopo</button>
+        <button type="button" class="btn ghost" data-qadd="${e[0]}">Aggiungi in coda</button></div>
+      </div></div>`).join("")}</div>` : ""}
+    </div>`;
+  },
   posts(){
     const L = (a, empty) => a && a.length ? a.map(x => `<div class="row"><span class="body"><b>${esc(x[1])}</b><span class="sub">${eur(x[2])} · ${new Date(x[3]*1000).toLocaleString("it-IT")}</span></span></div>`).join("") : `<div class="empty">${empty}</div>`;
     return `<div class="sheet">
@@ -517,8 +578,8 @@ const V = {
 
 function render(){
   topbar();
-  const map = {home:"home", publish:"publish", explore:"explore", posts:"posts", settings:"settings"};
-  if (["home","publish","explore","posts"].includes(tab) && ["home","publish","explore","posts"].includes(screen) === false && !["auto","stores","slots","types","filters","cats","sellers","manufacturers"].includes(screen)) {
+  const map = {home:"home", upcoming:"upcoming", publish:"publish", explore:"explore", posts:"posts", settings:"settings"};
+  if (["home","upcoming","publish","explore","posts"].includes(tab) && ["home","upcoming","publish","explore","posts"].includes(screen) === false && !["auto","stores","slots","types","filters","cats","sellers","manufacturers"].includes(screen)) {
     // keep nested screens when coming from settings/auto
   }
   if (map[tab] && (screen === "home" || screen === tab || (tab==="settings" && ["settings","general","formats","tags","keyboard","media","affiliate","auto","stores","slots","types","filters","cats","sellers","manufacturers"].includes(screen)))) {
@@ -534,13 +595,13 @@ function render(){
 function go(s, t){
   screen = s;
   if (t) tab = t;
-  else if (["home","publish","explore","posts","settings"].includes(s)) tab = s;
+  else if (["home","upcoming","publish","explore","posts","settings"].includes(s)) tab = s;
   else if (["auto","stores","slots","types","filters","cats","sellers","manufacturers"].includes(s)) tab = (s==="auto"||["stores","slots","types","filters","cats","sellers","manufacturers"].includes(s)) && document.querySelector("#tabs .on")?.dataset.t === "settings" ? "settings" : "home";
   render();
 }
 
 document.addEventListener("click", e => {
-  const t = e.target.closest("[data-t],[data-tab],[data-nav],[data-day],[data-rm],[data-act],[data-smode],[data-sm],[data-mode],[data-fmt],[data-tagk],[data-reset],[data-card],[data-now],[data-sch],[data-auto],[data-cont],[data-sync],[data-etab],[data-cat],[data-step]");
+  const t = e.target.closest("[data-t],[data-tab],[data-nav],[data-day],[data-rm],[data-act],[data-smode],[data-sm],[data-mode],[data-fmt],[data-tagk],[data-reset],[data-card],[data-now],[data-sch],[data-auto],[data-cont],[data-sync],[data-etab],[data-cat],[data-step],[data-qskip],[data-qnext],[data-qadd],[data-qpick],[data-pickcancel],[data-replacenext],[data-replaceadd]");
   if (!t) return;
   const ds = t.dataset;
   if (ds.t) { tab = ds.t; screen = ds.t; return render(); }
@@ -573,6 +634,21 @@ document.addEventListener("click", e => {
   if (ds.now) { action = {act:"post_now", asin:ds.now}; return send(); }
   if (ds.sch) { action = {act:"schedule", asin:ds.sch}; return send(); }
   if (ds.auto) { action = {act:"autopost", asin:ds.auto}; return send(); }
+  if (ds.qskip) { action = {act:"queue_skip", asin:ds.qskip}; return send(); }
+  if (ds.qnext) { action = {act:"queue_next", asin:ds.qnext}; return send(); }
+  if (ds.qadd) { action = {act:"queue_add", asin:ds.qadd}; return send(); }
+  if (ds.qpick) { pickFor = {asin:ds.qpick, title: ds.qtitle || ""}; return render(); }
+  if (ds.pickcancel) { pickFor = null; return render(); }
+  if (ds.replacenext) {
+    const drop = pickFor && pickFor.asin; pickFor = null;
+    action = {act:"queue_next", asin:ds.replacenext, alsoSkip: drop};
+    return send();
+  }
+  if (ds.replaceadd) {
+    const drop = pickFor && pickFor.asin; pickFor = null;
+    action = {act:"queue_add", asin:ds.replaceadd, alsoSkip: drop};
+    return send();
+  }
   if (ds.cont !== undefined) return sendNextPart();
   if (ds.sync !== undefined) return openStart("sync");
   if (ds.act) {
@@ -707,6 +783,15 @@ async function sendViaLink(){
     if (a.act === "post_now") return openStart(pre + "p" + a.asin);
     if (a.act === "autopost") return openStart(pre + "a" + a.asin);
     if (a.act === "schedule") return openStart(pre + "g" + a.asin);
+    if (a.act === "queue_skip") return openStart(pre + "s" + a.asin);
+    if (a.act === "queue_next") {
+      if (a.alsoSkip) openStart(pre + "s" + a.alsoSkip);
+      return openStart(pre + "n" + a.asin);
+    }
+    if (a.act === "queue_add") {
+      if (a.alsoSkip) openStart(pre + "s" + a.alsoSkip);
+      return openStart(pre + "i" + a.asin);
+    }
     if (a.act === "post_url") {
       const m = /(?:\/dp\/|\/gp\/product\/|\/gp\/aw\/d\/)([A-Z0-9]{10})/.exec(a.url) || /^([A-Z0-9]{10})$/.exec(a.url.trim());
       if (m) return openStart(pre + "p" + m[1]);
@@ -751,6 +836,8 @@ loadSnap().then(s => {
   if (mt && mt[1] === "auto") { tab = "home"; screen = "auto"; }
   if (mt && mt[1] === "slots") { tab = "home"; screen = "slots"; }
   if (mt && mt[1] === "explore") { tab = "explore"; screen = "explore"; }
+  if (mt && mt[1] === "upcoming") { tab = "upcoming"; screen = "upcoming"; }
+  if (S && S.tab === "upcoming") { tab = "upcoming"; screen = "upcoming"; }
   render();
   loadPending().then(v => { try { const p = v && JSON.parse(v); if (p && p.codes && p.i < p.codes.length && p.codes[0].slice(1,7) === S.k) { pending = p; showPending(); } } catch(_){} });
 });
