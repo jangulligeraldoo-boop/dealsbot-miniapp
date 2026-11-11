@@ -525,17 +525,18 @@ const V = {
         : `<div class="thumb" style="display:grid;place-items:center;background:var(--bg2);color:var(--hint);font-size:22px">📦</div>`;
     };
     if (pickFor) {
+      const alts = (pool || []).filter(e => e[0] !== pickFor.asin);
       return `<div class="sheet">
-        <div class="pickbar">Sostituisci «${esc(pickFor.title)}» con un'altra offerta già ammissibile. L'invio sul canale resta automatico.</div>
+        <div class="pickbar">Sostituisci «${esc(pickFor.title)}» — tocca un'offerta per metterla subito in quella posizione.</div>
         <div class="btns" style="margin:0 0 10px"><button type="button" class="btn ghost" data-pickcancel="1">Annulla</button></div>
-        <div class="card pad0">${pool.length ? pool.map(e => {
-          return `<div class="prod">${thumbOf(e, 8)}<div class="info">
+        <div class="card pad0">${alts.length ? alts.map(e => {
+          const typ = e[9] ? `<span class="badge slot">${esc(e[9])}</span>` : "";
+          return `<div class="prod" data-replaceat="${e[0]}" style="cursor:pointer">${thumbOf(e, 8)}<div class="info">
             <div class="title">${esc(e[1])}</div>
             <div class="prices"><span class="now">${eur(e[2])}</span><span class="old">${eur(e[3])}</span><span class="badge disc">-${e[4]}%</span></div>
-            <div class="meta"><span class="badge type">${esc(e[5]||"")}</span></div>
+            <div class="meta"><span class="badge type">${esc(e[5]||"")}</span>${typ}</div>
             <div class="actions">
-              <button type="button" class="btn blue" data-replacenext="${e[0]}">Usa come prossimo</button>
-              <button type="button" class="btn ghost" data-replaceadd="${e[0]}">Aggiungi in coda</button>
+              <button type="button" class="btn blue" data-replaceat="${e[0]}">Sostituisci con questo</button>
             </div>
           </div></div>`;
         }).join("") : `<div class="empty">Nessun altro candidato ammissibile in questo momento.</div>`}</div>
@@ -547,13 +548,14 @@ const V = {
       <div class="card pad0">${items.length ? items.map((e, i) => {
         const combo = e[7] ? `<span class="badge combo">Combo</span>` : "";
         const slot = e[6] ? `<span class="badge slot">${esc(e[6])}</span>` : "";
+        const typ = e[9] ? `<span class="badge slot">${esc(e[9])}</span>` : "";
         return `<div class="prod">${thumbOf(e, 8)}<div class="info">
           <div class="title">${i+1}. ${esc(e[1])}</div>
           <div class="prices"><span class="now">${eur(e[2])}</span><span class="old">${eur(e[3])}</span><span class="badge disc">-${e[4]}%</span></div>
-          <div class="meta"><span class="badge type">${esc(e[5]||"")}</span>${slot}${combo}</div>
+          <div class="meta"><span class="badge type">${esc(e[5]||"")}</span>${typ}${slot}${combo}</div>
           <div class="actions">
             <button type="button" class="btn danger" data-qskip="${e[0]}">Elimina</button>
-            <button type="button" class="btn ghost" data-qpick="${e[0]}" data-qtitle="${esc(e[1])}">Sostituisci</button>
+            <button type="button" class="btn ghost" data-qpick="${e[0]}" data-qtitle="${esc(e[1])}" data-qidx="${i}">Sostituisci</button>
             ${i>0?`<button type="button" class="btn ghost" data-qnext="${e[0]}">Posta dopo</button>`:""}
           </div>
         </div></div>`;
@@ -601,7 +603,7 @@ function go(s, t){
 }
 
 document.addEventListener("click", e => {
-  const t = e.target.closest("[data-t],[data-tab],[data-nav],[data-day],[data-rm],[data-act],[data-smode],[data-sm],[data-mode],[data-fmt],[data-tagk],[data-reset],[data-card],[data-now],[data-sch],[data-auto],[data-cont],[data-sync],[data-etab],[data-cat],[data-step],[data-qskip],[data-qnext],[data-qadd],[data-qpick],[data-pickcancel],[data-replacenext],[data-replaceadd]");
+  const t = e.target.closest("[data-t],[data-tab],[data-nav],[data-day],[data-rm],[data-act],[data-smode],[data-sm],[data-mode],[data-fmt],[data-tagk],[data-reset],[data-card],[data-now],[data-sch],[data-auto],[data-cont],[data-sync],[data-etab],[data-cat],[data-step],[data-qskip],[data-qnext],[data-qadd],[data-qpick],[data-pickcancel],[data-replacenext],[data-replaceadd],[data-replaceat]");
   if (!t) return;
   const ds = t.dataset;
   if (ds.t) { tab = ds.t; screen = ds.t; return render(); }
@@ -637,7 +639,7 @@ document.addEventListener("click", e => {
   if (ds.qskip) { action = {act:"queue_skip", asin:ds.qskip}; return send(); }
   if (ds.qnext) { action = {act:"queue_next", asin:ds.qnext}; return send(); }
   if (ds.qadd) { action = {act:"queue_add", asin:ds.qadd}; return send(); }
-  if (ds.qpick) { pickFor = {asin:ds.qpick, title: ds.qtitle || ""}; return render(); }
+  if (ds.qpick) { pickFor = {asin:ds.qpick, title: ds.qtitle || "", index: Number(ds.qidx || 0)}; return render(); }
   if (ds.pickcancel) { pickFor = null; return render(); }
   if (ds.replacenext) {
     const drop = pickFor && pickFor.asin; pickFor = null;
@@ -649,6 +651,7 @@ document.addEventListener("click", e => {
     action = {act:"queue_add", asin:ds.replaceadd, alsoSkip: drop};
     return send();
   }
+  if (ds.replaceat) { return swapQueued(ds.replaceat); }
   if (ds.cont !== undefined) return sendNextPart();
   if (ds.sync !== undefined) return openStart("sync");
   if (ds.act) {
@@ -792,6 +795,13 @@ async function sendViaLink(){
       if (a.alsoSkip) openStart(pre + "s" + a.alsoSkip);
       return openStart(pre + "i" + a.asin);
     }
+    if (a.act === "queue_replace") {
+      const at = Math.max(0, Math.min(35, Number(a.at || 0)|0)).toString(36);
+      const oldA = a.replace || a.alsoSkip || "";
+      if (/^[A-Z0-9]{10}$/.test(a.asin) && /^[A-Z0-9]{10}$/.test(oldA))
+        return openStart(pre + "r" + at + oldA + a.asin);
+      return toast("Sostituzione non valida.");
+    }
     if (a.act === "post_url") {
       const m = /(?:\/dp\/|\/gp\/product\/|\/gp\/aw\/d\/)([A-Z0-9]{10})/.exec(a.url) || /^([A-Z0-9]{10})$/.exec(a.url.trim());
       if (m) return openStart(pre + "p" + m[1]);
@@ -809,6 +819,26 @@ async function sendViaLink(){
   const n = parts.length.toString(36);
   pending = { codes: parts.map((p, i) => pre + "c" + seq + i.toString(36) + n + p), i: 0 };
   sendNextPart();
+}
+function swapQueued(newAsin){
+  if (!pickFor || !newAsin) return;
+  const items = S.upcoming || [];
+  const pool = S.pool || [];
+  const idx = Math.max(0, Math.min(items.length, Number(pickFor.index || 0)));
+  const oldAsin = pickFor.asin;
+  const row = pool.find(e => e[0] === newAsin) || items.find(e => e[0] === newAsin);
+  if (!row) { toast("Offerta non più disponibile."); return; }
+  const keptSlot = (items[idx] && items[idx][6]) || "";
+  const placed = row.slice();
+  placed[6] = keptSlot;
+  const dropped = items[idx];
+  S.upcoming = items.slice(0, idx).concat([placed], items.slice(idx + 1));
+  S.pool = pool.filter(e => e[0] !== newAsin).concat(dropped ? [dropped] : []).filter((e,i,a) => e && e[0] !== newAsin && a.findIndex(x => x[0]===e[0])===i);
+  pickFor = null;
+  render();
+  toast("✅ Sostituita in questa posizione.");
+  action = {act:"queue_replace", asin:newAsin, replace:oldAsin, at:idx, planned:(S.upcoming||[]).map(e => e[0])};
+  return send();
 }
 function send(){
   let s = JSON.stringify(payload());
