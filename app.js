@@ -196,8 +196,13 @@ function topbar(){
   el.dataset.title = t;
 }
 
+function thumbUrl(src){
+  if (!src) return "";
+  if (/^https?:/i.test(src)) return src;
+  return "https://m.media-amazon.com/images/I/" + src + "._AC_UL160_.jpg";
+}
 function thumbOf(e, imgIdx){
-  const src = e[imgIdx];
+  const src = thumbUrl(e[imgIdx]);
   return src
     ? `<img class="thumb" src="${esc(src)}" alt="" loading="eager" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><div class="thumb" style="display:none;place-items:center;background:var(--bg2);color:var(--hint);font-size:20px">📦</div>`
     : `<div class="thumb" style="display:grid;place-items:center;background:var(--bg2);color:var(--hint);font-size:22px">📦</div>`;
