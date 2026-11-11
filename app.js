@@ -104,7 +104,7 @@ function changes(){
 }
 
 let S, P0, P, mode, paused, tab = "home", screen = "home", day = "def", fmtKey = "lightning", tagKey = "reviews";
-let exploreTab = "possible", action = null, editKey = null, pickFor = null;
+let exploreTab = "possible", action = null, editKey = null, pickFor = null, schedIdx = null, progBack = "posts";
 
 function dirty(){
   const n = Object.keys(changes()).length + (mode !== S.mode) + (paused !== !!S.paused) + (action ? 1 : 0);
@@ -180,10 +180,13 @@ function topbar(){
     publish: "Pubblica",
     explore: "Esplora",
     posts: "Post",
+    programmati: "Programmati",
+    sched: "Programmato",
   };
   const backTo = {
     auto:"home", stores:"auto", slots:"auto", types:"auto", filters:"auto", cats:"auto", sellers:"auto", manufacturers:"auto",
     general:"settings", formats:"settings", tags:"settings", keyboard:"settings", media:"settings", affiliate:"settings",
+    programmati: progBack || "posts", sched:"programmati",
   };
   const t = titles[screen] || S.bot;
   const b = backTo[screen];
@@ -191,6 +194,32 @@ function topbar(){
     <div class="ch"><b>${esc(chName())}</b><span>${esc(chHandle())}</span></div>`;
   // page title sits in the view for detail screens
   el.dataset.title = t;
+}
+
+function thumbOf(e, imgIdx){
+  const src = e[imgIdx];
+  return src
+    ? `<img class="thumb" src="${esc(src)}" alt="" loading="eager" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><div class="thumb" style="display:none;place-items:center;background:var(--bg2);color:var(--hint);font-size:20px">📦</div>`
+    : `<div class="thumb" style="display:grid;place-items:center;background:var(--bg2);color:var(--hint);font-size:22px">📦</div>`;
+}
+function replaceSheetHTML(){
+  const pool = S.pool || [];
+  const alts = pool.filter(e => e[0] !== (pickFor && pickFor.asin));
+  return `<div class="sheet">
+    <div class="pickbar">Sostituisci «${esc(pickFor && pickFor.title)}» — tocca un'offerta per metterla subito in quella posizione.</div>
+    <div class="btns" style="margin:0 0 10px"><button type="button" class="btn ghost" data-pickcancel="1">Annulla</button></div>
+    <div class="card pad0">${alts.length ? alts.map(e => {
+      const typ = e[9] ? `<span class="badge slot">${esc(e[9])}</span>` : "";
+      return `<div class="prod" data-replaceat="${e[0]}" style="cursor:pointer">${thumbOf(e, 8)}<div class="info">
+        <div class="title">${esc(e[1])}</div>
+        <div class="prices"><span class="now">${eur(e[2])}</span><span class="old">${eur(e[3])}</span><span class="badge disc">-${e[4]}%</span></div>
+        <div class="meta"><span class="badge type">${esc(e[5]||"")}</span>${typ}</div>
+        <div class="actions">
+          <button type="button" class="btn blue" data-replaceat="${e[0]}">Sostituisci con questo</button>
+        </div>
+      </div></div>`;
+    }).join("") : `<div class="empty">Nessun altro candidato ammissibile in questo momento.</div>`}</div>
+  </div>`;
 }
 
 const V = {
@@ -238,7 +267,7 @@ const V = {
       </div>
       <div class="sec">Panoramica</div>
       <div class="list">
-        ${row("cal","i-blue","Programmati", null, "", `<span class="val">${slots.length}</span>`)}
+        ${row("cal","i-blue","Programmati", (S.upcoming||[]).length ? `${(S.upcoming||[]).length} in arrivo` : "nessuno in coda", `data-nav="programmati"`, `<span class="val">${(S.upcoming||[]).length}</span>`)}
         ${row("check","i-green","Pubblicati", "ultime 24 ore", "", `<span class="val">${S.n_posted24??0}</span>`)}
         ${row("bolt","i-orange","Autoposting", null, "", `<span class="val">${P.enabled && !paused ? "1 attivo" : "spento"}</span>`)}
         ${row("chat","i-cyan","Modalità", null, "", `<span class="pill ${mode==="live"?"live":"prova"}">${mode==="live"?"LIVE":"PROVA"}</span>`)}
@@ -518,30 +547,7 @@ const V = {
   upcoming(){
     const items = S.upcoming || [];
     const pool = S.pool || [];
-    const thumbOf = (e, imgIdx) => {
-      const src = e[imgIdx];
-      return src
-        ? `<img class="thumb" src="${esc(src)}" alt="" loading="eager" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><div class="thumb" style="display:none;place-items:center;background:var(--bg2);color:var(--hint);font-size:20px">📦</div>`
-        : `<div class="thumb" style="display:grid;place-items:center;background:var(--bg2);color:var(--hint);font-size:22px">📦</div>`;
-    };
-    if (pickFor) {
-      const alts = (pool || []).filter(e => e[0] !== pickFor.asin);
-      return `<div class="sheet">
-        <div class="pickbar">Sostituisci «${esc(pickFor.title)}» — tocca un'offerta per metterla subito in quella posizione.</div>
-        <div class="btns" style="margin:0 0 10px"><button type="button" class="btn ghost" data-pickcancel="1">Annulla</button></div>
-        <div class="card pad0">${alts.length ? alts.map(e => {
-          const typ = e[9] ? `<span class="badge slot">${esc(e[9])}</span>` : "";
-          return `<div class="prod" data-replaceat="${e[0]}" style="cursor:pointer">${thumbOf(e, 8)}<div class="info">
-            <div class="title">${esc(e[1])}</div>
-            <div class="prices"><span class="now">${eur(e[2])}</span><span class="old">${eur(e[3])}</span><span class="badge disc">-${e[4]}%</span></div>
-            <div class="meta"><span class="badge type">${esc(e[5]||"")}</span>${typ}</div>
-            <div class="actions">
-              <button type="button" class="btn blue" data-replaceat="${e[0]}">Sostituisci con questo</button>
-            </div>
-          </div></div>`;
-        }).join("") : `<div class="empty">Nessun altro candidato ammissibile in questo momento.</div>`}</div>
-      </div>`;
-    }
+    if (pickFor) return replaceSheetHTML();
     return `<div class="sheet">
       <h2 style="margin:0 0 6px;font-size:22px">Prossimi post</h2>
       <div class="hint" style="margin:0 0 12px">In ordine, quello che il bot pubblicherà in automatico sul canale. Puoi toglierne uno o sceglierne un altro: i filtri e i tetti restano validi.</div>
@@ -570,17 +576,72 @@ const V = {
   },
   posts(){
     const L = (a, empty) => a && a.length ? a.map(x => `<div class="row"><span class="body"><b>${esc(x[1])}</b><span class="sub">${eur(x[2])} · ${new Date(x[3]*1000).toLocaleString("it-IT")}</span></span></div>`).join("") : `<div class="empty">${empty}</div>`;
+    const items = S.upcoming || [];
+    const prog = items.length ? items.map((e, i) => {
+      const slot = e[6] ? esc(e[6]) : nextSlotLabel();
+      return `<button type="button" class="row" data-sched="${i}" style="align-items:flex-start">
+        ${thumbOf(e, 8)}
+        <span class="body"><b>${esc(e[1])}</b><span class="sub">${eur(e[2])} · ${eur(e[3])} · -${e[4]}%${slot ? " · " + slot : ""}</span></span>
+        <span class="chev">${ICONS.chev}</span>
+      </button>`;
+    }).join("") : `<div class="empty">Nessuna offerta programmata per i prossimi slot.</div>`;
     return `<div class="sheet">
       <div class="sec" style="margin-top:0">Pubblicati</div><div class="list">${L(S.posted,"Nessun post.")}</div>
-      <div class="sec">Programmati</div><div class="list"><div class="row"><span class="body"><b>Prossimo slot</b><span class="sub">${esc(nextSlotLabel())} · ${(S.explore||[]).length} in coda</span></span></div></div>
+      <div class="sec">Programmati</div>
+      <div class="hint" style="margin:0 0 8px">Tocca un'offerta per vederne i dettagli e sostituirla o toglierla. L'invio sul canale resta automatico.</div>
+      <div class="list">${prog}</div>
       <div class="sec">Bozze / anteprime</div><div class="list">${L(S.drafts,"Nessuna bozza.")}</div>
+    </div>`;
+  },
+  programmati(){
+    const items = S.upcoming || [];
+    if (pickFor) return replaceSheetHTML();
+    return `<div class="sheet">
+      <h2 style="margin:0 0 6px;font-size:22px">Programmati</h2>
+      <div class="hint" style="margin:0 0 12px">In ordine, quello che il bot pubblicherà in automatico. Tocca un'offerta per i dettagli: puoi toglierla o sceglierne un'altra, i filtri e i tetti restano validi.</div>
+      <div class="card pad0">${items.length ? items.map((e, i) => {
+        const slot = e[6] ? `<span class="badge slot">${esc(e[6])}</span>` : "";
+        const typ = e[9] ? `<span class="badge slot">${esc(e[9])}</span>` : "";
+        return `<div class="prod" data-sched="${i}" style="cursor:pointer">${thumbOf(e, 8)}<div class="info">
+          <div class="title">${i+1}. ${esc(e[1])}</div>
+          <div class="prices"><span class="now">${eur(e[2])}</span><span class="old">${eur(e[3])}</span><span class="badge disc">-${e[4]}%</span></div>
+          <div class="meta"><span class="badge type">${esc(e[5]||"")}</span>${typ}${slot}</div>
+        </div></div>`;
+      }).join("") : `<div class="empty">Nessuna offerta programmata per i prossimi slot.</div>`}</div>
+    </div>`;
+  },
+  sched(){
+    const items = S.upcoming || [];
+    if (pickFor) return replaceSheetHTML();
+    const i = Math.max(0, Math.min(items.length - 1, Number(schedIdx || 0)));
+    const e = items[i];
+    if (!e) {
+      return `<div class="sheet"><div class="empty">Questa offerta non è più in coda.</div>
+        <div class="btns"><button type="button" class="btn ghost" data-nav="programmati">Indietro</button></div></div>`;
+    }
+    const combo = e[7] ? `<span class="badge combo">Combo</span>` : "";
+    const slot = e[6] ? `<span class="badge slot">${esc(e[6])}</span>` : "";
+    const typ = e[9] ? `<span class="badge slot">${esc(e[9])}</span>` : "";
+    return `<div class="sheet">
+      <h2 style="margin:0 0 6px;font-size:22px">Programmato</h2>
+      <div class="hint" style="margin:0 0 12px">${e[6] ? "Previsto per " + esc(e[6]) + ". " : ""}L'invio sul canale resta automatico.</div>
+      <div class="card pad0"><div class="prod">${thumbOf(e, 8)}<div class="info">
+        <div class="title">${esc(e[1])}</div>
+        <div class="prices"><span class="now">${eur(e[2])}</span><span class="old">${eur(e[3])}</span><span class="badge disc">-${e[4]}%</span></div>
+        <div class="meta"><span class="badge type">${esc(e[5]||"")}</span>${typ}${slot}${combo}</div>
+        <div class="actions">
+          <button type="button" class="btn danger" data-qskip="${e[0]}">Elimina</button>
+          <button type="button" class="btn ghost" data-qpick="${e[0]}" data-qtitle="${esc(e[1])}" data-qidx="${i}">Sostituisci</button>
+          ${i>0?`<button type="button" class="btn ghost" data-qnext="${e[0]}">Posta dopo</button>`:""}
+        </div>
+      </div></div></div>
     </div>`;
   },
 };
 
 function render(){
   topbar();
-  const map = {home:"home", upcoming:"upcoming", publish:"publish", explore:"explore", posts:"posts", settings:"settings"};
+  const map = {home:"home", upcoming:"upcoming", publish:"publish", explore:"explore", posts:"posts", settings:"settings", programmati:"programmati", sched:"sched"};
   if (["home","upcoming","publish","explore","posts"].includes(tab) && ["home","upcoming","publish","explore","posts"].includes(screen) === false && !["auto","stores","slots","types","filters","cats","sellers","manufacturers"].includes(screen)) {
     // keep nested screens when coming from settings/auto
   }
@@ -588,6 +649,13 @@ function render(){
     // ok
   }
   if (!V[screen]) screen = map[tab] || "home";
+  if (pickFor && typeof replaceSheetHTML === "function") {
+    $("#view").innerHTML = replaceSheetHTML();
+    document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.t === tab));
+    dirty();
+    window.scrollTo(0,0);
+    return;
+  }
   $("#view").innerHTML = V[screen]();
   document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.t === tab));
   dirty();
@@ -597,18 +665,29 @@ function render(){
 function go(s, t){
   screen = s;
   if (t) tab = t;
+  else if (s === "programmati" || s === "sched") tab = "posts";
   else if (["home","upcoming","publish","explore","posts","settings"].includes(s)) tab = s;
   else if (["auto","stores","slots","types","filters","cats","sellers","manufacturers"].includes(s)) tab = (s==="auto"||["stores","slots","types","filters","cats","sellers","manufacturers"].includes(s)) && document.querySelector("#tabs .on")?.dataset.t === "settings" ? "settings" : "home";
   render();
 }
 
 document.addEventListener("click", e => {
-  const t = e.target.closest("[data-t],[data-tab],[data-nav],[data-day],[data-rm],[data-act],[data-smode],[data-sm],[data-mode],[data-fmt],[data-tagk],[data-reset],[data-card],[data-now],[data-sch],[data-auto],[data-cont],[data-sync],[data-etab],[data-cat],[data-step],[data-qskip],[data-qnext],[data-qadd],[data-qpick],[data-pickcancel],[data-replacenext],[data-replaceadd],[data-replaceat]");
+  const t = e.target.closest("[data-t],[data-tab],[data-nav],[data-day],[data-rm],[data-act],[data-smode],[data-sm],[data-mode],[data-fmt],[data-tagk],[data-reset],[data-card],[data-now],[data-sch],[data-auto],[data-cont],[data-sync],[data-etab],[data-cat],[data-step],[data-qskip],[data-qnext],[data-qadd],[data-qpick],[data-pickcancel],[data-replacenext],[data-replaceadd],[data-replaceat],[data-sched]");
   if (!t) return;
   const ds = t.dataset;
   if (ds.t) { tab = ds.t; screen = ds.t; return render(); }
   if (ds.tab) { tab = ds.tab; screen = ds.tab; return render(); }
-  if (ds.nav) { return go(ds.nav); }
+  if (ds.nav) {
+    if (ds.nav === "programmati") progBack = (tab === "home" && screen === "home") ? "home" : "posts";
+    return go(ds.nav);
+  }
+  if (ds.sched !== undefined) {
+    schedIdx = Number(ds.sched || 0);
+    if (screen === "posts") progBack = "posts";
+    screen = "sched";
+    tab = "posts";
+    return render();
+  }
   if (ds.day) { day = ds.day; return render(); }
   if (ds.rm !== undefined) { P.slots[day] = (P.slots[day]||[]).filter((_,i)=>i!=ds.rm); return render(); }
   if (ds.smode) { P.schedule_mode = ds.smode; return render(); }
@@ -636,11 +715,38 @@ document.addEventListener("click", e => {
   if (ds.now) { action = {act:"post_now", asin:ds.now}; return send(); }
   if (ds.sch) { action = {act:"schedule", asin:ds.sch}; return send(); }
   if (ds.auto) { action = {act:"autopost", asin:ds.auto}; return send(); }
-  if (ds.qskip) { action = {act:"queue_skip", asin:ds.qskip}; return send(); }
-  if (ds.qnext) { action = {act:"queue_next", asin:ds.qnext}; return send(); }
+  if (ds.qskip) {
+    const asin = ds.qskip;
+    if (screen === "sched" || screen === "programmati") {
+      S.upcoming = (S.upcoming || []).filter(e => e[0] !== asin);
+      schedIdx = null;
+      screen = "programmati";
+      tab = "posts";
+      render();
+    }
+    action = {act:"queue_skip", asin};
+    return send();
+  }
+  if (ds.qnext) {
+    const asin = ds.qnext;
+    if (screen === "sched" || screen === "programmati") {
+      const items = S.upcoming || [];
+      const hit = items.find(e => e[0] === asin);
+      if (hit) S.upcoming = [hit].concat(items.filter(e => e[0] !== asin));
+      schedIdx = 0;
+      render();
+    }
+    action = {act:"queue_next", asin};
+    return send();
+  }
   if (ds.qadd) { action = {act:"queue_add", asin:ds.qadd}; return send(); }
-  if (ds.qpick) { pickFor = {asin:ds.qpick, title: ds.qtitle || "", index: Number(ds.qidx || 0)}; return render(); }
-  if (ds.pickcancel) { pickFor = null; return render(); }
+  if (ds.qpick) { pickFor = {asin:ds.qpick, title: ds.qtitle || "", index: Number(ds.qidx || 0), back: screen}; return render(); }
+  if (ds.pickcancel) {
+    const back = pickFor && pickFor.back;
+    pickFor = null;
+    if (back && V[back]) screen = back;
+    return render();
+  }
   if (ds.replacenext) {
     const drop = pickFor && pickFor.asin; pickFor = null;
     action = {act:"queue_next", asin:ds.replacenext, alsoSkip: drop};
@@ -834,7 +940,10 @@ function swapQueued(newAsin){
   const dropped = items[idx];
   S.upcoming = items.slice(0, idx).concat([placed], items.slice(idx + 1));
   S.pool = pool.filter(e => e[0] !== newAsin).concat(dropped ? [dropped] : []).filter((e,i,a) => e && e[0] !== newAsin && a.findIndex(x => x[0]===e[0])===i);
+  const back = pickFor.back;
   pickFor = null;
+  if (back === "sched") { schedIdx = idx; screen = "sched"; tab = "posts"; }
+  else if (back === "programmati") { screen = "programmati"; tab = "posts"; }
   render();
   toast("✅ Sostituita in questa posizione.");
   action = {act:"queue_replace", asin:newAsin, replace:oldAsin, at:idx, planned:(S.upcoming||[]).map(e => e[0])};
@@ -867,7 +976,9 @@ loadSnap().then(s => {
   if (mt && mt[1] === "slots") { tab = "home"; screen = "slots"; }
   if (mt && mt[1] === "explore") { tab = "explore"; screen = "explore"; }
   if (mt && mt[1] === "upcoming") { tab = "upcoming"; screen = "upcoming"; }
+  if (mt && mt[1] === "programmati") { tab = "posts"; screen = "programmati"; }
   if (S && S.tab === "upcoming") { tab = "upcoming"; screen = "upcoming"; }
+  if (S && S.tab === "programmati") { tab = "posts"; screen = "programmati"; }
   render();
   loadPending().then(v => { try { const p = v && JSON.parse(v); if (p && p.codes && p.i < p.codes.length && p.codes[0].slice(1,7) === S.k) { pending = p; showPending(); } } catch(_){} });
 });
