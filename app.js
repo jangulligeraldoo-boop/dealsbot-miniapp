@@ -34,6 +34,7 @@ const ICONS = {
   filter: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16l-6 8v5l-4 2v-7L4 5z"/></svg>',
   grid: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
   refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.6-6.2"/><path d="M21 3v6h-6"/></svg>',
+  search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>',
   user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>',
   factory: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 21h20V10l-6 4V10l-6 4V5H2v16z"/></svg>',
   tag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12 12 4H4v8l8 8 8-8z"/><circle cx="8" cy="8" r="1.5"/></svg>',
@@ -105,6 +106,8 @@ function changes(){
 
 let S, P0, P, mode, paused, tab = "home", screen = "home", day = "def", fmtKey = "lightning", tagKey = "reviews";
 let exploreTab = "possible", action = null, editKey = null, pickFor = null, schedIdx = null, progBack = "posts";
+let manualQ = "", manualCat = "", manualHits = [], manualBusy = false;
+
 
 function dirty(){
   const n = Object.keys(changes()).length + (mode !== S.mode) + (paused !== !!S.paused) + (action ? 1 : 0);
@@ -177,6 +180,7 @@ function topbar(){
     keyboard: "Tastiera",
     media: "Media",
     affiliate: "Tag affiliati",
+    manuale: "Manuale",
     publish: "Pubblica",
     explore: "Esplora",
     posts: "Post",
@@ -512,6 +516,28 @@ const V = {
       <div class="list"><div class="field"><label>🇮🇹 Amazon IT</label><input type="text" id="aff" value="${esc((P.tags_aff||{}).it||"")}" placeholder="nome-21"></div></div>
       <div class="hint">Altri marketplace verranno aggiunti più avanti.</div></div>`;
   },
+  manuale(){
+    const cats = ["Tutte"].concat((D && D.CATEGORIES) || []);
+    const opts = cats.map(c => `<option value="${esc(c==="Tutte"?"":c)}" ${((c==="Tutte"?"":c)===manualCat)?"selected":""}>${esc(c)}</option>`).join("");
+    const hits = manualHits || [];
+    const body = hits.length ? hits.map(e => {
+      const disc = e[4] ? `<span class="badge disc">-${e[4]}%</span>` : "";
+      return `<div class="prod">${thumbOf(e, 7)}<div class="info">
+        <div class="title">${esc(e[1])}</div>
+        <div class="prices"><span class="now">${eur(e[2])}</span><span class="old">${eur(e[3])}</span>${disc}</div>
+        <div class="actions qacts"><button type="button" class="btn blue" data-mpub="${e[0]}">Pubblica ora</button></div>
+      </div></div>`;
+    }).join("") : `<div class="empty">${manualBusy ? "Ricerca in corso…" : "Cerca un prodotto per parola chiave o categoria e pubblicalo subito sul canale."}</div>`;
+    return `<div class="sheet"><h2 style="margin:0 0 12px;font-size:22px">Manuale</h2>
+      <div class="searchbox">
+        <input type="search" id="mq" placeholder="Cerca su Amazon…" value="${esc(manualQ)}" autocomplete="off">
+        <select id="mcat">${opts}</select>
+      </div>
+      <div class="btns" style="margin:0 0 10px"><button type="button" class="btn primary block" data-msearch="1">Cerca</button></div>
+      <div class="hint inline">Tutte le categorie. Un tocco pubblica subito, senza messaggi in chat.</div>
+      <div class="card pad0">${body}</div>
+    </div>`;
+  },
   publish(){
     return `<div class="sheet"><h2 style="margin:0 0 12px;font-size:22px">Pubblica</h2>
       <div class="list"><div class="field"><label>Link Amazon</label><input type="url" id="url" placeholder="https://www.amazon.it/dp/…"></div></div>
@@ -648,8 +674,8 @@ const V = {
 
 function render(){
   topbar();
-  const map = {home:"home", upcoming:"upcoming", publish:"publish", explore:"explore", posts:"posts", settings:"settings", programmati:"programmati", sched:"sched"};
-  if (["home","upcoming","publish","explore","posts"].includes(tab) && ["home","upcoming","publish","explore","posts"].includes(screen) === false && !["auto","stores","slots","types","filters","cats","sellers","manufacturers"].includes(screen)) {
+  const map = {home:"home", upcoming:"upcoming", manuale:"manuale", publish:"publish", explore:"explore", posts:"posts", settings:"settings", programmati:"programmati", sched:"sched"};
+  if (["home","upcoming","manuale","publish","explore","posts"].includes(tab) && ["home","upcoming","manuale","publish","explore","posts"].includes(screen) === false && !["auto","stores","slots","types","filters","cats","sellers","manufacturers"].includes(screen)) {
     // keep nested screens when coming from settings/auto
   }
   if (map[tab] && (screen === "home" || screen === tab || (tab==="settings" && ["settings","general","formats","tags","keyboard","media","affiliate","auto","stores","slots","types","filters","cats","sellers","manufacturers"].includes(screen)))) {
@@ -673,13 +699,13 @@ function go(s, t){
   screen = s;
   if (t) tab = t;
   else if (s === "programmati" || s === "sched") tab = "posts";
-  else if (["home","upcoming","publish","explore","posts","settings"].includes(s)) tab = s;
+  else if (["home","upcoming","manuale","publish","explore","posts","settings"].includes(s)) tab = s;
   else if (["auto","stores","slots","types","filters","cats","sellers","manufacturers"].includes(s)) tab = (s==="auto"||["stores","slots","types","filters","cats","sellers","manufacturers"].includes(s)) && document.querySelector("#tabs .on")?.dataset.t === "settings" ? "settings" : "home";
   render();
 }
 
 document.addEventListener("click", e => {
-  const t = e.target.closest("[data-t],[data-tab],[data-nav],[data-day],[data-rm],[data-act],[data-smode],[data-sm],[data-mode],[data-fmt],[data-tagk],[data-reset],[data-card],[data-now],[data-sch],[data-auto],[data-cont],[data-sync],[data-etab],[data-cat],[data-step],[data-qskip],[data-qnext],[data-qadd],[data-qpick],[data-pickcancel],[data-replacenext],[data-replaceadd],[data-replaceat],[data-sched]");
+  const t = e.target.closest("[data-t],[data-tab],[data-nav],[data-day],[data-rm],[data-act],[data-smode],[data-sm],[data-mode],[data-fmt],[data-tagk],[data-reset],[data-card],[data-now],[data-sch],[data-auto],[data-cont],[data-sync],[data-etab],[data-cat],[data-step],[data-qskip],[data-qnext],[data-qadd],[data-qpick],[data-pickcancel],[data-replacenext],[data-replaceadd],[data-replaceat],[data-sched],[data-msearch],[data-mpub]");
   if (!t) return;
   const ds = t.dataset;
   if (ds.t) { tab = ds.t; screen = ds.t; return render(); }
@@ -719,7 +745,16 @@ document.addEventListener("click", e => {
     P[k] = Math.max(1, Math.min(5, (P[k]||1) + Number(d)));
     return render();
   }
+  if (ds.msearch) { return doManualSearch(); }
+  if (ds.mpub) {
+    const asin = ds.mpub;
+    manualHits = (manualHits || []).filter(e => e[0] !== asin);
+    render();
+    action = {act:"post_now", asin};
+    return sendAction();
+  }
   if (ds.now) {
+
     const asin = ds.now;
     if (screen === "sched" || screen === "programmati" || screen === "upcoming") {
       S.upcoming = (S.upcoming || []).filter(e => e[0] !== asin);
@@ -784,12 +819,12 @@ document.addEventListener("click", e => {
     const cur = slotsOf(day) ?? [...(P.slots.def||[])];
     if (ds.act === "add") {
       const v = $("#newslot").value.trim();
-      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(v)) return alert("Formato HH:MM");
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(v)) return toast("Formato HH:MM");
       P.slots[day] = [...new Set([...cur, v])].sort();
     }
     if (ds.act === "gen") {
       const n = +$("#gen").value;
-      if (!(n>0 && n<=300)) return alert("N tra 1 e 300");
+      if (!(n>0 && n<=300)) return toast("N tra 1 e 300");
       const step = 1440/n, j = P.jitter_min||3, out = [];
       for (let i=0;i<n;i++){
         let m = Math.round(step*i + step/2 + (Math.random()*2-1)*j);
@@ -802,7 +837,7 @@ document.addEventListener("click", e => {
     if (ds.act === "clear") P.slots[day] = [];
     if (ds.act === "posturl") {
       const u = $("#url").value.trim();
-      if (!/amazon\.|amzn\.|a\.co\//.test(u)) return alert("Link Amazon non valido");
+      if (!/amazon\.|amzn\.|a\.co\//.test(u)) return toast("Link Amazon non valido");
       action = {act:"post_url", url:u}; return sendAction();
     }
     return render();
@@ -900,42 +935,89 @@ function sendNextPart(){
   showPending(); dirty();
 }
 function toast(t){
-  if (tg && tg.showAlert) { try { return tg.showAlert(t); } catch(_){} }
-  const el = document.createElement("div"); el.className = "savebar"; el.style.bottom = "140px"; el.textContent = t;
-  document.body.appendChild(el); setTimeout(() => el.remove(), 2500);
+  // Mai showAlert/popup Telegram: tutto resta nella Mini-app.
+  const old = document.getElementById("toastbar"); if (old) old.remove();
+  const el = document.createElement("div"); el.id = "toastbar"; el.className = "savebar"; el.style.bottom = "140px"; el.textContent = t;
+  document.body.appendChild(el); setTimeout(() => { if (el.parentNode) el.remove(); }, 1800);
 }
-async function sendAction(){
-  const a = action;
-  if (!a) return;
-  const api = ((S && S.api) || "").replace(/\/$/, "");
+function apiBase(){
+  return (((S && S.api) || window.DB_API || "") + "").replace(/\/$/, "");
+}
+function applyLists(j){
+  if (!j) return;
+  if (Array.isArray(j.upcoming)) S.upcoming = j.upcoming;
+  if (Array.isArray(j.pool)) S.pool = j.pool;
+  if (Array.isArray(j.posted)) S.posted = j.posted;
+  if (Array.isArray(j.explore)) S.explore = j.explore;
+  if (j.api) S.api = j.api;
+}
+async function refreshLists(){
+  const api = apiBase();
   const init = (tg && tg.initData) || "";
-  if (!api || !init) {
-    action = null; dirty();
-    toast("Riapri la Mini-app dal pulsante «📱 Mini-app» sotto la chat: i pulsanti ora funzionano qui dentro.");
-    return;
-  }
-  const body = Object.assign({cid: S.cid, init: init}, a);
+  if (!api || !init || !S) return;
   try {
     const r = await fetch(api + "/wa", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(body)
+      body: JSON.stringify({cid: S.cid, init, act: "refresh"})
     });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok && j && j.ok !== false) { applyLists(j); render(); }
+  } catch (_) {}
+}
+async function doManualSearch(){
+  const qEl = document.getElementById("mq");
+  const cEl = document.getElementById("mcat");
+  if (qEl) manualQ = qEl.value.trim();
+  if (cEl) manualCat = cEl.value;
+  if (!manualQ && !manualCat) { toast("Scrivi una ricerca o scegli una categoria."); return; }
+  manualBusy = true; render();
+  action = {act:"search", q: manualQ, index: manualCat};
+  await sendAction();
+  manualBusy = false; render();
+}
+async function sendAction(){
+  const a = action;
+  if (!a) return;
+  const api = apiBase();
+  const init = (tg && tg.initData) || "";
+  if (!api || !init) {
+    action = null; dirty();
+    toast("Apri la Mini-app dal menu del bot per aggiornare il collegamento.");
+    return;
+  }
+  const body = Object.assign({cid: S.cid, init: init}, a);
+  // impostazioni sporche: salva insieme all'azione, sempre via API (niente messaggi in chat)
+  if (a.act !== "search" && typeof changes === "function") {
+    const ch = changes();
+    if (ch && Object.keys(ch).length) body.p = ch;
+  }
+  action = null; dirty();
+  try {
+    const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    const to = ctrl ? setTimeout(() => ctrl.abort(), 15000) : null;
+    const r = await fetch(api + "/wa", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(body),
+      signal: ctrl ? ctrl.signal : undefined
+    });
+    if (to) clearTimeout(to);
     let j = {};
     try { j = await r.json(); } catch(_){}
-    action = null; dirty();
     if (!r.ok || j.ok === false) {
-      toast((j && j.msg) || "Operazione non riuscita. Riapri la Mini-app dal pulsante tastiera e riprova.");
+      toast((j && j.msg) || "Operazione non riuscita.");
+      await refreshLists();
       return;
     }
-    if (Array.isArray(j.upcoming)) S.upcoming = j.upcoming;
-    if (Array.isArray(j.pool)) S.pool = j.pool;
-    if (Array.isArray(j.posted)) S.posted = j.posted;
+    applyLists(j);
+    if (Array.isArray(j.results)) manualHits = j.results;
+    if (body.p && Object.keys(body.p).length) P0 = clone(P);
     render();
-    if (j.msg) toast(j.msg);
+    // successo: niente popup, niente messaggio Telegram, la lista si aggiorna qui
   } catch (e) {
-    action = null; dirty();
-    toast("Connessione non riuscita. Riapri la Mini-app dal pulsante tastiera e riprova.");
+    toast("Connessione non riuscita. Riprovo…");
+    await refreshLists();
   }
 }
 async function sendViaLink(){
@@ -999,24 +1081,15 @@ function swapQueued(newAsin){
   if (back === "sched") { schedIdx = idx; screen = "sched"; tab = "posts"; }
   else if (back === "programmati") { screen = "programmati"; tab = "posts"; }
   render();
-  toast("✅ Sostituita in questa posizione.");
+  // già aggiornata in schermata, senza popup
   action = {act:"queue_replace", asin:newAsin, replace:oldAsin, at:idx, planned:(S.upcoming||[]).map(e => e[0])};
   return sendAction();
 }
 function send(){
-  let s = JSON.stringify(payload());
-  if (canSendData()) {
-    if (new TextEncoder().encode(s).length > 4096) {
-      const o = payload(); delete o.init; s = JSON.stringify(o);
-      if (new TextEncoder().encode(s).length > 4096) return sendViaLink();
-    }
-    return tg.sendData(s);
-  }
-  if (inTG()) return sendViaLink();
-  console.log("sendData", s);
-  const old = document.getElementById("dbg"); if (old) old.remove();
-  document.body.insertAdjacentHTML("beforeend", `<pre id="dbg" class="card" style="white-space:pre-wrap;font-size:11px;max-width:480px;margin:12px auto">sendData → ${esc(s)}</pre>`);
-  action = null; dirty();
+  action = {act: "save", p: changes()};
+  if (mode !== S.mode) action.mode = mode;
+  if (paused !== !!S.paused) action.paused = paused;
+  return sendAction();
 }
 $("#save").onclick = send;
 document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => { tab = b.dataset.t; screen = tab; render(); });
@@ -1028,11 +1101,21 @@ loadSnap().then(s => {
   if (mt && mt[1] === "settings") { tab = "settings"; screen = "settings"; }
   if (mt && mt[1] === "auto") { tab = "home"; screen = "auto"; }
   if (mt && mt[1] === "slots") { tab = "home"; screen = "slots"; }
+  if (mt && mt[1] === "manuale") { tab = "manuale"; screen = "manuale"; }
   if (mt && mt[1] === "explore") { tab = "explore"; screen = "explore"; }
   if (mt && mt[1] === "upcoming") { tab = "upcoming"; screen = "upcoming"; }
   if (mt && mt[1] === "programmati") { tab = "posts"; screen = "programmati"; }
   if (S && S.tab === "upcoming") { tab = "upcoming"; screen = "upcoming"; }
   if (S && S.tab === "programmati") { tab = "posts"; screen = "programmati"; }
   render();
+  refreshLists();
   loadPending().then(v => { try { const p = v && JSON.parse(v); if (p && p.codes && p.i < p.codes.length && p.codes[0].slice(1,7) === S.k) { pending = p; showPending(); } } catch(_){} });
+});
+document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshLists(); });
+setInterval(() => { if (!document.hidden) refreshLists(); }, 20000);
+document.addEventListener("keydown", e => {
+  if (e.key === "Enter" && (e.target && (e.target.id === "mq" || e.target.id === "mcat"))) {
+    e.preventDefault();
+    doManualSearch();
+  }
 });

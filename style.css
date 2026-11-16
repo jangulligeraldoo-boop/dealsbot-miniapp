@@ -157,10 +157,10 @@ button{cursor:pointer}
 .dock{position:fixed;left:50%;bottom:calc(10px + var(--safe-b));transform:translateX(-50%);
   display:flex;gap:2px;background:rgba(28,33,48,.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
   border:1px solid rgba(255,255,255,.08);border-radius:22px;padding:6px 8px;z-index:40;
-  box-shadow:0 10px 40px rgba(0,0,0,.45);width:min(420px, calc(100% - 24px))}
+  box-shadow:0 10px 40px rgba(0,0,0,.45);width:min(460px, calc(100% - 16px))}
 .dock button{flex:1;border:0;background:transparent;color:var(--hint);padding:6px 2px 4px;border-radius:16px;
-  display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:600}
-.dock button svg{width:22px;height:22px}
+  display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;font-weight:600}
+.dock button svg{width:20px;height:20px}
 .dock button.on{color:var(--link);background:rgba(59,130,246,.12)}
 .dock button.on svg{stroke:var(--link)}
 
@@ -200,3 +200,8 @@ button{cursor:pointer}
 .badge.slot{background:rgba(59,130,246,.15);color:var(--link);font-weight:600}
 .prod .actions .btn.danger{background:#b91c1c;color:#fff;border:0}
 .pickbar{position:sticky;top:0;z-index:2;background:var(--bg2);padding:10px 12px;border-bottom:1px solid var(--sep);font-size:13px}
+
+.searchbox{display:flex;gap:8px;margin:0 0 10px}
+.searchbox input,.searchbox select{flex:1;min-width:0;border:1px solid rgba(255,255,255,.1);background:var(--bg2);color:var(--tx);border-radius:12px;padding:10px 12px;font-size:14px}
+.searchbox select{flex:0 0 42%}
+.hint.inline{margin:0 0 10px}
