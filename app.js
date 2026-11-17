@@ -132,8 +132,8 @@ function todaySlots(){
 function nextSlotLabel(){ return S.next || "—"; }
 function activeTypes(){ return D.DEAL_TYPES.filter(t => P.deal_types[t]).join(", "); }
 function filterSummary(){
-  const mx = P.max_price == null ? "∞" : ("€" + P.max_price);
-  return `€${P.min_price} - €${mx} · ${P.min_discount}% - ${P.max_discount}%`;
+  const mx = (P.max_price == null || Number(P.max_price) <= 0) ? "∞" : ("€" + P.max_price);
+  return `€${P.min_price} – ${mx} · ${P.min_discount}% – ${P.max_discount}%`;
 }
 function catSummary(){
   const c = P.categories || [];
@@ -410,7 +410,7 @@ const V = {
       ["error_pct","Soglia 'Errore o affare?' %"],["cooldown_days","Pausa stesso prodotto (giorni)"]
     ];
     return `<div class="sheet"><h2 style="margin:0 0 12px;font-size:22px">Filtri</h2>
-      <div class="list">${fields.map(([k,l])=>`<div class="field"><label>${l}</label><input type="number" step="any" data-num="${k}" value="${P[k]??""}" placeholder="—"></div>`).join("")}
+      <div class="list">${fields.map(([k,l])=>`<div class="field"><label>${l}</label><input type="number" step="any" data-num="${k}" value="${(k==='max_price' && !Number(P[k]||0)) ? '' : (P[k]??'')}" placeholder="—"></div>`).join("")}
         <div class="row"><span class="body"><b>Solo marche note</b><span class="sub">Orologi, smartwatch e gioielli</span></span>${sw("brand_guard", P.brand_guard!==false)}</div>
         <div class="row"><span class="body"><b>Niente marche random</b><span class="sub">Cuffie/gadget no-name (Renimer…)</span></span>${sw("noname_guard", P.noname_guard!==false)}</div>
         <div class="row"><span class="body"><b>Blocca venditori CN</b><span class="sub">Rivenditori cinesi / nomi sospetti</span></span>${sw("chinese_seller_block", P.chinese_seller_block!==false)}</div>
